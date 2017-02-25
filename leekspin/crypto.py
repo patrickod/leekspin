@@ -27,6 +27,8 @@ from leekspin.const import TOR_END_SIG
 from leekspin.const import TOKEN_ONION_KEY
 from leekspin.const import TOKEN_ROUTER_SIGNATURE
 from leekspin.const import TOKEN_SIGNING_KEY
+from leekspin.const import TOKEN_BEGIN_CROSSCERT
+from leekspin.const import TOKEN_END_CROSSCERT
 
 
 class InvalidFingerprint(ValueError):
@@ -35,10 +37,10 @@ class InvalidFingerprint(ValueError):
 
 def addPKCS1Padding(message):
     """Add PKCS#1 padding to **message**.
-    
+
     .. todo:: What version of PKCS#1? PKCS#1 v1.0? See
         https://bugs.torproject.org/13042.
-    
+
     .. The double-backslashes in the following bytestrings are so that Sphinx
         renders them properly. Each double-backslash is should actually only
         be a single backslash in the code.
@@ -438,3 +440,25 @@ def signDescriptorContent(content, privateKey, digest=None,
     content = content[:rsStart] + routerSignatureLine + b'\n'
 
     return content
+
+def generateOnionKeyCrosscertLine(identitysk, ed25519identitypk, onionsk):
+    """
+    Generate an onion-key-crosscert line resulting from signing the
+    concatenated string consisting of a SHA1 hash of the RSA identity key and
+    the ed25519 public identity key with the RSA onion key.
+
+    :param rsa.identitykeysk: A private RSA key.
+    :param nacl.signing.VerifyKey ed25519identitypk: The ed25519 master / identity key
+
+    :returns: a complete onion-key-crosscert line with PEM block for the descriptor
+    """
+    rsa_key_digest = hashlib.sha1(getASN1Sequence(identitysk)).digest()
+    data = rsa_key_digest + ed25519identitypk.__bytes__()
+
+    (signatureLong, ) = onionsk.sign(data, None)
+    signatureBytes = longToBytes(signatureLong, 128)
+
+    signatureBase64 = base64.b64encode(signatureBytes)
+    signature = chunkInto64CharsPerLine(signatureBase64)
+
+    return b'\n'.join([b"onion-key-crosscert", TOKEN_BEGIN_CROSSCERT, signature, TOKEN_END_CROSSCERT])

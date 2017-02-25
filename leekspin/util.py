@@ -11,6 +11,7 @@ from codecs import open as open
 import argparse
 import ipaddr
 import random
+import re
 import sys
 import time
 
@@ -62,7 +63,9 @@ def getArgParser():
     descgroup2.add_argument("-xn", "--without-ntor", action="store_true",
                             help=("generate descriptors without ntor support, "
                                   "e.g. without Ed25519 keys"))
-    descgroup2.set_defaults(without_tap=False, without_ntor=False)
+    descgroup2.add_argument("-xe", "--without-ed25519", action="store_true",
+                            help=("generate descriptors without ed25519 certificates"))
+    descgroup2.set_defaults(without_tap=False, without_ntor=False, without_ed25519=False)
 
     group = parser.add_argument_group()
     group.title = "required arguments"
@@ -190,3 +193,7 @@ def writeDescToFile(filename, descriptors):
     except (IOError, OSError) as err:
         print("Failure while attempting to write descriptors to file '%s': %s"
               % (filename, err.message))
+
+def stripBase64Padding(b64_encoded):
+    """Strip the trailing = padding from a base64 encoded string"""
+    return re.sub(r"[=]*$", "", b64_encoded)

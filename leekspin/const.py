@@ -52,11 +52,17 @@ TOR_END_MSG   = b"-----END MESSAGE-----"
 """Tokens for ``[bridge-]server-descriptors``:"""
 
 #:
-TOKEN_SIGNING_KEY = b"signing-key\n"
+TOKEN_SIGNING_KEY              = b"signing-key\n"
 #:
-TOKEN_ONION_KEY = b"onion-key\n"
+TOKEN_ONION_KEY                = b"onion-key\n"
 #:
-TOKEN_ROUTER_SIGNATURE = b"router-signature\n"
+TOKEN_ROUTER_SIGNATURE         = b"router-signature\n"
+#:
+TOKEN_ED25519_ROUTER_SIGNATURE = b"router-sig-ed25519 "
+#:
+TOKEN_ED25519_MASTER_KEY       = b"master-key-ed25519 "
+#:
+TOKEN_ED25519_IDENTITY         = b"identity-ed25519\n"
 
 
 """Tokens for ``rendezvous-service-descriptors``:"""
@@ -88,3 +94,20 @@ OPENSSL_BEGIN_CERT = b"-----BEGIN CERTIFICATE-----"
 #:
 OPENSSL_END_CERT   = b"-----END CERTIFICATE-----"
 
+
+"""Strings used to create Ed25519 Certificates and Signatures"""
+
+#:
+ED25519_BEGIN_CERT                        = b"-----BEGIN ED25519 CERT-----"
+#:
+ED25519_END_CERT                          = b"-----END ED25519 CERT-----"
+#:
+TOKEN_ED25519_DESCRIPTOR_SIGNATURE_PREFIX = b"Tor router descriptor signature v1"
+
+
+"""Strings used to create onion-key-crosscert blocks"""
+#:
+TOKEN_BEGIN_CROSSCERT = b"-----BEGIN CROSSCERT-----"
+
+#:
+TOKEN_END_CROSSCERT   = b"-----END CROSSCERT-----"

@@ -28,6 +28,7 @@ except (ImportError, NameError) as error:
 import OpenSSL
 import OpenSSL.crypto
 
+from leekspin import certificate
 from leekspin import const
 from leekspin import crypto
 from leekspin import extrainfo
@@ -44,7 +45,7 @@ from leekspin import util
 nacl = True if ntor.nacl else False
 
 
-def generateDescriptors(bridge=True, withoutTAP=False, withoutNTOR=False):
+def generateDescriptors(bridge=True, withoutTAP=False, withoutNTOR=False, withoutEd25519=False):
     """Create keys, certs, signatures, documents and descriptors for an OR.
 
     :param bool bridge: If ``True``, generate Bridge descriptors; otherwise,
@@ -53,6 +54,8 @@ def generateDescriptors(bridge=True, withoutTAP=False, withoutNTOR=False):
         support for the TAP handshake, e.g. without RSA keys.
     :param bool withoutTAP: If ``True``, generate descriptors without
         support for the ntor handshake, e.g. without Ed25519 keys.
+    :param bool withoutEd25519: If ``True``: generate descriptors without any
+        support for Ed25519 identity and signing keys.
     :returns: A 3-tuple of strings:
 
       - a ``@type [bridge-]extra-info`` descriptor,
@@ -85,10 +88,20 @@ def generateDescriptors(bridge=True, withoutTAP=False, withoutNTOR=False):
         try:
             secretNTORKey = ntor.createNTORSecretKey()
             publicNTORKey = ntor.getNTORPublicKey(secretNTORKey)
-        except ntor.NTORKeyCreationError as error:
+        except ntor.NTORKeyCreationError:
             secretNTORKey = None
             publicNTORKey = None
-        
+
+    if not withoutEd25519:
+        try:
+            (skidentity, sksigning, masterKeyLine) = certificate.generateIdentitySigningKeys()
+            certificateLine = certificate.generateCertificateLine(skidentity, sksigning)
+            onionKeyCrosscertLine = crypto.generateOnionKeyCrosscertLine(secretSigningKey, skidentity.verify_key, secretOnionKey)
+        except Exception as error:
+            (skidentity, sksigning, masterKeyLine, certificateLine, onionKeyCrosscertLine) = (None, None, None, None)
+    else:
+        (skidentity, sksigning, masterKeyLine, certificateLine, onionKeyCrosscertLine) = (None, None, None, None, None)
+
     (fingerprintSpacey, fingerprintBinary) = crypto.getFingerprint(publicSigningKey)
     fingerprintSmooshed = crypto.convertToSmooshedFingerprint(fingerprintSpacey)
 
@@ -106,14 +119,21 @@ def generateDescriptors(bridge=True, withoutTAP=False, withoutNTOR=False):
                                                 vers, protocols, uptime,
                                                 bandwidth, extrainfoDigest,
                                                 onionKeyLine, signingKeyLine,
-                                                publicNTORKey, bridge=bridge)
-    (serverDigestBinary,
-     serverDigest,
-     serverDigestPKCS1) = crypto.digestDescriptorContent(serverDoc)
+                                                publicNTORKey, masterKeyLine,
+                                                certificateLine,
+                                                onionKeyCrosscertLine,
+                                                bridge=bridge)
 
     if bridge:
         serverDoc = b'@purpose bridge\n' + serverDoc
 
+    # Add router-sig-ed25519 line
+    if sksigning is not None:
+        serverDoc = certificate.signDescriptor(sksigning, serverDoc)
+
+    # Add final router-signature block
+    serverDoc += const.TOKEN_ROUTER_SIGNATURE
+    (serverDigestBinary, serverDigest, serverDigestPKCS1) = crypto.digestDescriptorContent(serverDoc)
     serverDesc = crypto.signDescriptorContent(serverDoc,
                                               secretSigningKey,
                                               digest=serverDigestPKCS1)
@@ -251,12 +271,15 @@ def createRelayOrBridgeDescriptors(count, bridge=True, **kwargs):
 
     withoutTAP = False
     withoutNTOR = False
+    withoutEd25519 = False
 
     if kwargs:
         if "withoutTAP" in kwargs:
             withoutTAP = kwargs.get("withoutTAP")
         if "withoutNTOR" in kwargs:
             withoutNTOR = kwargs.get("withoutNTOR")
+        if "withoutEd25519" in kwargs:
+            withoutEd25519 = kwargs.get("withoutEd25519")
 
     server_descriptors    = list()
     netstatus_consensus   = list()
@@ -275,7 +298,8 @@ def createRelayOrBridgeDescriptors(count, bridge=True, **kwargs):
                  server,
                  netstatus) = generateDescriptors(bridge=bridge,
                                                   withoutTAP=withoutTAP,
-                                                  withoutNTOR=withoutNTOR)
+                                                  withoutNTOR=withoutNTOR,
+                                                  withoutEd25519=withoutEd25519)
             except Exception as error:
                 err, msg, tb = sys.exc_info()
                 try:
@@ -328,7 +352,7 @@ def createRelayOrBridgeDescriptors(count, bridge=True, **kwargs):
         code = 0
         sys.exit(code)
 
-def create(count, descriptorType=None, withoutTAP=False, withoutNTOR=False):
+def create(count, descriptorType=None, withoutTAP=False, withoutNTOR=False, withoutEd25519=False):
     """Create **count** descriptors of type **descriptor_type**.
 
     :param int count: The number of descriptors to generate.
@@ -339,6 +363,8 @@ def create(count, descriptorType=None, withoutTAP=False, withoutNTOR=False):
         support for the TAP handshake, e.g. without RSA keys.
     :param bool withoutTAP: If ``True``, generate descriptors without
         support for the ntor handshake, e.g. without Ed25519 keys.
+    :param bool withoutEd25519: if ``True``, generate descriptors without
+        support for Ed25519 certificates, e.g. offline Ed25519 master keys.
     """
     logging.info("Creating descriptor type %s" % descriptorType)
 
@@ -346,6 +372,7 @@ def create(count, descriptorType=None, withoutTAP=False, withoutNTOR=False):
         bridge = bool(descriptorType == 'bridge')
         createRelayOrBridgeDescriptors(count, bridge=bridge,
                                        withoutTAP=withoutTAP,
-                                       withoutNTOR=withoutNTOR)
+                                       withoutNTOR=withoutNTOR,
+                                       withoutEd25519=withoutEd25519)
     elif descriptorType in ('hidden_service',):
         createHiddenServiceDescriptors(count)

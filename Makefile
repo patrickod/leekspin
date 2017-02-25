@@ -65,13 +65,13 @@ clean-dist:
 	-rm -rf dist
 
 clean-descriptors:
-	-rm bridge-descriptors
-	-rm cached-extrainfo
-	-rm cached-extrainfo.new
-	-rm networkstatus-bridges
-	-rm cached-consensus
-	-rm cached-descriptors
-	-rm rendezvous-service-descriptors
+	-rm -f bridge-descriptors
+	-rm -f cached-extrainfo
+	-rm -f cached-extrainfo.new
+	-rm -f networkstatus-bridges
+	-rm -f cached-consensus
+	-rm -f cached-descriptors
+	-rm -f rendezvous-service-descriptors
 
 clean: clean-build clean-dist clean-descriptors
 

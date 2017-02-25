@@ -63,7 +63,8 @@ if __name__ == "__main__":
         if options.descriptors and (options.descriptors > 0):
             generator.create(options.descriptors, descriptorType=descType,
                              withoutTAP=options.without_tap,
-                             withoutNTOR=options.without_ntor)
+                             withoutNTOR=options.without_ntor,
+                             withoutEd25519=options.without_ed25519)
         else:
             raise SystemExit(parser.format_help())
 

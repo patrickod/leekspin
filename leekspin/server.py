@@ -10,11 +10,11 @@ from leekspin import crypto
 from leekspin import torversions
 
 
-def generateServerDescriptor(nick, fingerprint, timestamp,
-                             ipv4, ipv6, port, vers, protocols,
-                             uptime, bandwidth, extraInfoHexDigest,
-                             onionKeyLine, signingKeyLine, publicNTORKey,
-                             bridge=True):
+def generateServerDescriptor(nick, fingerprint, timestamp, ipv4, ipv6, port,
+                             vers, protocols, uptime, bandwidth,
+                             extraInfoHexDigest, onionKeyLine, signingKeyLine,
+                             publicNTORKey, ed25519MasterKeyLine,
+                             ed25519CertificateLine, onionKeyCrosscertLine, bridge=True):
     """Generate an ``@type [bridge-]server-descriptor``.
 
     :param str nick: The router's nickname.
@@ -34,6 +34,8 @@ def generateServerDescriptor(nick, fingerprint, timestamp,
     :param str onionKeyLine: An ``onion-key`` line.
     :param str signingKeyLine: A ``signing-key`` line.
     :param str publicNTORKey: An ``ntor-onion-key``.
+    :param str ed25519MasterKeyLine: An ``master-key-ed25519`` line.
+    :param str ed25519CertificateLine: An ``identity-ed25519`` line.
     :param bool bridge: If ``True``, create a Bridge descriptor. If ``False``,
         create a Relay descriptor.
     """
@@ -41,6 +43,10 @@ def generateServerDescriptor(nick, fingerprint, timestamp,
 
     # TODO: non-bridge routers need real dirports and socksports
     doc.append(b"router %s %s %s 0 0" % (nick, ipv4, port))
+    if ed25519CertificateLine is not None:
+        doc.append(b"%s" % ed25519CertificateLine)
+    if ed25519MasterKeyLine is not None:
+        doc.append(b"%s" % ed25519MasterKeyLine)
     doc.append(b"or-address [%s]:%s" % (ipv6, port - 1))
     doc.append(b"platform Tor %s on Linux" % vers)
     doc.append(b"%s" % protocols)
@@ -52,6 +58,8 @@ def generateServerDescriptor(nick, fingerprint, timestamp,
     if onionKeyLine:  # We might have been run with the --without-TAP option
         doc.append(b"%s" % onionKeyLine)
     doc.append(b"%s" % signingKeyLine)
+    if onionKeyCrosscertLine:
+        doc.append(b"%s" % onionKeyCrosscertLine)
 
     if not bridge:
         doc.append(b"%s" % makeHSDirLine(vers))
@@ -61,8 +69,7 @@ def generateServerDescriptor(nick, fingerprint, timestamp,
     if publicNTORKey is not None:
         doc.append(b"ntor-onion-key %s" % publicNTORKey)
 
-    doc.append(b"reject *:*")
-    doc.append(b"router-signature\n")
+    doc.append(b"reject *:*\n")
 
     unsignedDescriptor = b'\n'.join(doc)
 
